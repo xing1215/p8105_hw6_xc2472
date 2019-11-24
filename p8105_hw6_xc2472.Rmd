@@ -89,7 +89,13 @@ the model.
 child_bw_data %>% 
   modelr::add_residuals(own_model) %>% 
   modelr::add_predictions(own_model) %>%
-  ggplot(aes(x = resid, y = pred)) + geom_point()
+  ggplot(aes(x = resid, y = pred)) + 
+  geom_point() + 
+  labs(
+    title = "residuals vs. predictions",
+    x = "residual",
+    y = "predction"
+  )
 ```
 
 
@@ -125,7 +131,14 @@ cv_df %>%
     names_to = "model",
     values_to = "rmse"
   ) %>% 
-  ggplot(aes(x = model, y = rmse)) + geom_violin()
+  mutate(
+    model = recode(model, "rmse_own" = "own model", "rmse_main" = "model with only main effects", "rmse_interact" = "model with interactions")
+  ) %>% 
+  ggplot(aes(x = model, y = rmse)) + 
+  geom_violin() + 
+  labs(
+    title = "model comparison"
+  )
 ```
 
 
@@ -133,7 +146,7 @@ cv_df %>%
 
 ### Import the data
 
-```{r}
+```{r, message=FALSE}
 weather_df = 
   rnoaa::meteo_pull_monitors(
     c("USW00094728"),
@@ -149,21 +162,39 @@ weather_df =
 
 ### bootstrap
 
+**Build the bootstrap**
+
 ```{r}
 weather_bootstrap = 
   weather_df %>% 
   modelr::bootstrap(n = 5000) 
+```
 
-weather_bootstrap %>% 
+**Identify the distribution and 95% CI of r-square**
+
+```{r}
+r_square = 
+  weather_bootstrap %>% 
   mutate(
     models = map(strap, ~lm(tmax ~ tmin, data = .x)),
     results = map(models, broom::glance)
   ) %>% 
   select(.id, results) %>% 
-  unnest(results) %>% 
+  unnest(results) 
+
+quantile(r_square$r.squared, probs = c(0.025, 0.975))
+
+r_square %>% 
   ggplot(aes(x = r.squared)) + geom_density()
 
-weather_bootstrap %>% 
+
+```
+
+**Identify the distribution and 95% CI of log(beta0 * beta1)**
+
+```{r}
+log = 
+  weather_bootstrap %>% 
   mutate(
     models = map(strap, ~lm(tmax ~ tmin, data = .x)),
     results = map(models, broom::tidy)
@@ -176,9 +207,22 @@ weather_bootstrap %>%
   ) %>% 
   rename(intercept = `(Intercept)`) %>% 
   group_by(.id) %>% 
-  summarize(log_betas = log(intercept * tmin)) %>% 
+  summarize(log_betas = log(intercept * tmin))
+
+quantile(log$log_betas, probs = c(0.025, 0.975))
+
+log %>% 
   ggplot(aes(x = log_betas)) + geom_density()
 ```
+
+
+**Description**
+
+A clearly left skew can be seen in the distribution of r square. The 95% CI of r square is 
+(0.894, 0.927). 
+
+The distribution of log(beta0 * beta1) is approximately a normal distribution. The 95% CI of 
+log(beta0 * beta1) is (1.965, 2.058). 
 
 
 
