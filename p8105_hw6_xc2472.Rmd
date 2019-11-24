@@ -1,6 +1,8 @@
 ---
 title: "HW6"
 output: github_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -21,4 +23,61 @@ scale_colour_discrete = scale_colour_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
 theme_set(theme_minimal() + theme(legend.position = "bottom"))
 ```
+
+
+## Problem 1
+
+### Load and clean 
+
+import the dataset
+
+```{r}
+child_bw_data = read_csv(file = "./data/birthweight.csv")
+```
+
+change numeric variables with categorical values to factor variables
+
+```{r}
+child_bw_data = 
+child_bw_data %>% 
+  mutate(
+    babysex = as.factor(babysex),
+    babysex = recode(babysex, "1" = "male", "2" = "female"),
+    malform = as.factor(malform), 
+    malform = recode(malform, "0" = "absent", "1" = "present"), 
+    frace = as.factor(frace), 
+    frace = recode(frace, "1" = "White", "2"  = "Black", "3" = "Asian", "4" = "Puerto Rican", 
+                  "8" = "Other", "9" = "Unkown"), 
+    mrace = as.factor(mrace), 
+    mrace = recode(frace, "1" = "White", "2"  = "Black", "3" = "Asian", "4" = "Puerto Rican", 
+                  "8" = "Other")
+ )
+
+child_bw_data %>% 
+  select(babysex, malform, frace, mrace) %>% 
+  map(~levels(.x))
+```
+
+create my own regression model for birthweight
+
+create a regression model, using length at birth and gestational age as main predictors
+
+```{r}
+child_bw_data %>% 
+  lm(bwt ~ blength + gaweeks, data = .) %>% 
+  broom::tidy()
+```
+
+create a regression model, using head circumference, length, sex, and all interactions as main 
+predictors
+
+```{r}
+child_bw_data %>% 
+  lm(bwt ~ bhead + blength + babysex + bhead * blength + 
+     bhead * babysex + blength * babysex, data = .) %>% 
+  broom::tidy()
+```
+
+
+
 
