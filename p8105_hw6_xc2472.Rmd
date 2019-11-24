@@ -31,13 +31,13 @@ theme_set(theme_minimal() + theme(legend.position = "bottom"))
 
 ### Load and clean 
 
-import the dataset
+**import the dataset**
 
 ```{r}
 child_bw_data = read_csv(file = "./data/birthweight.csv")
 ```
 
-change numeric variables with categorical values to factor variables
+**change numeric variables with categorical values to factor variables**
 
 ```{r}
 child_bw_data = 
@@ -60,40 +60,40 @@ child_bw_data %>%
   map(~levels(.x))
 ```
 
-create my own regression model for birthweight
 
+### Build models
 
-create a regression model, using length at birth and gestational age as main predictors
+**create my own regression model for birthweight**
 
 ```{r}
-main_eff_model = 
+own_model = 
   child_bw_data %>% 
-  lm(bwt ~ blength + gaweeks, data = .)
-main_eff_model %>% 
+  lm(bwt ~ babysex + blength + fincome + malform + momage + smoken, data = .)
+own_model %>% 
   broom::tidy()
 ```
 
+**Description of modelling process**
+
+baby's sex and length have a direct influence on infant birthweight. Thus, I include these 2
+variables in the model. Furthermore, mother's age, mother's smoking status, and presence of 
+malformation have a direct influence on infant's birthweight. Thus, these variables are also 
+included in the model. A pregnant woman in a family with higher income would generally go to 
+see a doctor more often and reveive a better services. A pregnant woman in a family with 
+higher income is more likely to have a healthier baby. Thus, `fincome` is also included in 
+the model. 
+
+**make a plot of model residuals against fitted values**
+
 ```{r}
-# this chunk of code should appear above
 child_bw_data %>% 
-  modelr::add_residuals(main_eff_model) %>% 
-  modelr::add_predictions(main_eff_model) %>%
+  modelr::add_residuals(own_model) %>% 
+  modelr::add_predictions(own_model) %>%
   ggplot(aes(x = resid, y = pred)) + geom_point()
 ```
 
-create a regression model, using head circumference, length, sex, and all interactions as main 
-predictors
 
-```{r}
-interact_model = 
-  child_bw_data %>% 
-  lm(bwt ~ bhead + blength + babysex + bhead * blength + 
-     bhead * babysex + blength * babysex, data = .) %>% 
-  broom::tidy()
-```
-
-
-### Comparison
+### Make Comparisons
 
 ```{r}
 cv_df = 
@@ -106,17 +106,20 @@ cv_df =
 cv_df = 
   cv_df %>% 
   mutate(
+    own_mod = map(train, ~lm(bwt ~ babysex + blength + fincome + malform + momage + 
+                                   smoken, data = .)),
     main_mod = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
     interact_mod = map(train, ~lm(bwt ~ bhead + blength + babysex + bhead * blength + 
      bhead * babysex + blength * babysex, data = .x))
   ) %>% 
   mutate(
+    rmse_own = map2_dbl(own_mod, test, ~rmse(model = .x, data = .y)), 
     rmse_main = map2_dbl(main_mod, test, ~rmse(model = .x, data = .y)),
     rmse_interact = map2_dbl(interact_mod, test, ~rmse(model = .x, data = .y))
   )
 
 cv_df %>% 
-  select(rmse_main, rmse_interact) %>% 
+  select(starts_with("rmse")) %>% 
   pivot_longer(
     everything(),
     names_to = "model",
